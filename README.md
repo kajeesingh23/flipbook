@@ -7,7 +7,10 @@ Flipbook for artwork.
 A real-time 3D recreation of a retro-futuristic handheld game console, built as one shared
 Three.js scene with React Three Fiber. Every control is real geometry and can be operated.
 
+The app lives in [`console/`](console).
+
 ```bash
+cd console
 npm install
 npm run dev      # local dev server
 npm run build    # type-check + production build to dist/
@@ -30,7 +33,7 @@ npm run build    # type-check + production build to dist/
 ### Structure
 
 ```
-src/console
+console/src/console
 ├─ ConsoleExperience.tsx   Canvas, renderer settings
 ├─ Scene.tsx               Pose, idle float, GSAP reveal, backdrop shadow
 ├─ CameraController.tsx    Aspect-aware framing + cursor parallax
