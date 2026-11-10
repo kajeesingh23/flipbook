@@ -55,7 +55,7 @@ export function FrontPanel() {
   )
 }
 
-/** Blue-grey housing that gives the console its thickness. */
+/** Blue-grey mid frame between the front and rear shells. */
 export function SidePanel() {
   const geometry = useMemo(() => slab(HOUSING_W, HOUSING_H, HOUSING_D, CORNER - 0.03, 0.04), [])
   return <mesh geometry={geometry} material={mat.housing} position-z={HOUSING_Z} castShadow receiveShadow {...solid} />

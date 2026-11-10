@@ -10,11 +10,15 @@ export const CORNER = 0.24
 export const PLATE_T = 0.14
 export const FRONT_Z = D / 2
 
-/** Blue-grey housing behind the plate (slightly inset so the seam reads) */
+/** Ivory rear shell */
+export const BACK_T = 0.1
+export const BACK_Z = -D / 2
+
+/** Blue-grey mid frame sandwiched between the shells (inset so the seams read) */
 export const HOUSING_W = W - 0.06
 export const HOUSING_H = H - 0.06
-export const HOUSING_D = D - PLATE_T
-export const HOUSING_Z = -D / 2 + HOUSING_D / 2
+export const HOUSING_D = D - PLATE_T - BACK_T
+export const HOUSING_Z = (BACK_Z + BACK_T + FRONT_Z - PLATE_T) / 2
 
 /** Recessed display opening */
 export const SCREEN = { w: 2.62, h: 2.0, x: 0, y: 0.86, r: 0.17, recess: 0.035 }
@@ -42,6 +46,15 @@ export const SCREWS: [number, number][] = [
   [1.36, 1.93],
   [-1.3, -1.87],
   [1.36, -1.87],
+]
+
+export const BACK_SCREWS: [number, number][] = [
+  [-1.3, 1.85],
+  [1.3, 1.85],
+  [-1.3, 0.02],
+  [1.3, 0.02],
+  [-1.3, -1.85],
+  [1.3, -1.85],
 ]
 
 export const USB_X = 0.42

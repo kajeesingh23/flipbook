@@ -1,4 +1,3 @@
-import { useFrame } from '@react-three/fiber'
 import gsap from 'gsap'
 import { useLayoutEffect, useMemo, useRef } from 'react'
 import { CanvasTexture } from 'three'
@@ -8,11 +7,13 @@ import { InteractionController } from './InteractionController'
 import { LightingRig } from './LightingRig'
 import { ActionButtons } from './parts/ActionButton'
 import { Cartridges } from './parts/Cartridge'
+import { BackPanel } from './parts/BackPanel'
 import { ConsoleBody } from './parts/ConsoleBody'
 import { DirectionalPad } from './parts/DirectionalPad'
 import { DisplayModule } from './parts/DisplayModule'
 import { Joystick } from './parts/Joystick'
 import { LanyardLoop, ScrewDetails } from './parts/ScrewDetails'
+import { RotationController } from './RotationController'
 import { SideControls } from './parts/SideControls'
 import { USBPort } from './parts/USBPort'
 
@@ -46,6 +47,7 @@ function Console() {
   return (
     <>
       <ConsoleBody />
+      <BackPanel />
       <DisplayModule />
       <ScrewDetails />
       <ActionButtons />
@@ -61,7 +63,7 @@ function Console() {
 
 export function Scene({ reducedMotion, mobile }: { reducedMotion: boolean; mobile: boolean }) {
   const intro = useRef<Group>(null!)
-  const float = useRef<Group>(null!)
+  const float = useRef<Group>(null)
 
   // One-off reveal: the console eases up into its pose.
   useLayoutEffect(() => {
@@ -74,23 +76,11 @@ export function Scene({ reducedMotion, mobile }: { reducedMotion: boolean; mobil
     }
   }, [reducedMotion])
 
-  // Restrained idle float so the object feels alive but stays recognisable.
-  useFrame(({ clock }) => {
-    if (reducedMotion) return
-    const t = clock.elapsedTime
-    const g = float.current
-    g.position.y = Math.sin(t * 0.8) * 0.045
-    g.rotation.set(
-      POSE[0] + Math.sin(t * 0.6) * 0.018,
-      POSE[1] + Math.sin(t * 0.45 + 1) * 0.035,
-      POSE[2] + Math.sin(t * 0.5 + 2) * 0.008,
-    )
-  })
-
   return (
     <>
       <color attach="background" args={['#DAD9E5']} />
       <CameraController parallax={!reducedMotion} />
+      <RotationController target={float} pose={POSE} reducedMotion={reducedMotion} />
       <LightingRig shadowMapSize={mobile ? 1024 : 2048} />
       <group ref={intro}>
         <group ref={float} rotation={POSE}>

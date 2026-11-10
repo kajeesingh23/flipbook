@@ -2,7 +2,7 @@ import { animated, useSpring } from '@react-spring/three'
 import { useMemo, useState } from 'react'
 import { HOUSING_W, HOUSING_Z } from '../dimensions'
 import { slab } from '../geometry'
-import { capture, hover, release } from '../interaction'
+import { capture, claim, hover, release } from '../interaction'
 import { mat } from '../materials'
 import { blip } from '../sfx'
 import { events, useConsole } from '../store'
@@ -38,7 +38,7 @@ function PowerSwitch({ y }: { y: number }) {
         castShadow
         {...hover('pointer')}
         onPointerDown={(e) => {
-          e.stopPropagation()
+          claim(e)
           toggle()
         }}
       />
@@ -83,12 +83,18 @@ function SideButton({ y, length, onPress }: { y: number; length: number; onPress
  */
 export function SideControls() {
   return (
-    <group position={[-HOUSING_W / 2, 0, HOUSING_Z]} rotation-y={-Math.PI / 2}>
-      <PowerSwitch y={1.5} />
-      <SpeakerGrill y={0.42} />
-      <RotaryKnob y={-0.52} />
-      <SideButton y={-1.12} length={0.36} onPress={() => events.push({ type: 'pause' })} />
-      <SideButton y={-1.5} length={0.12} onPress={() => events.push({ type: 'reset' })} />
-    </group>
+    <>
+      <group position={[-HOUSING_W / 2, 0, HOUSING_Z]} rotation-y={-Math.PI / 2}>
+        <PowerSwitch y={1.5} />
+        <SpeakerGrill y={0.42} />
+        <RotaryKnob y={-0.52} />
+        <SideButton y={-1.12} length={0.36} onPress={() => events.push({ type: 'pause' })} />
+        <SideButton y={-1.5} length={0.12} onPress={() => events.push({ type: 'reset' })} />
+      </group>
+      {/* Right edge: second speaker below the memory-card slot */}
+      <group position={[HOUSING_W / 2, 0, HOUSING_Z]} rotation-y={Math.PI / 2}>
+        <SpeakerGrill y={-0.55} />
+      </group>
+    </>
   )
 }

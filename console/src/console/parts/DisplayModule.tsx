@@ -1,19 +1,20 @@
 import { useFrame } from '@react-three/fiber'
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { CanvasTexture, NearestFilter, ShaderMaterial, ShapeGeometry, Shape, SRGBColorSpace, Vector2 } from 'three'
 import { FRONT_Z, PICTURE, SCREEN } from '../dimensions'
 import { crtFragment, crtVertex } from '../game/crtShader'
-import { GH, GW, PixelGame } from '../game/PixelGame'
+import { GameSystem } from '../game/GameSystem'
+import { GH, GW } from '../game/types'
 import { roundedRect, slab } from '../geometry'
 import { solid } from '../interaction'
 import { mat } from '../materials'
 import { axes, useConsole } from '../store'
 import { bitmapLabel } from '../textures'
 
-/** The lit picture: a live pixel-art canvas pushed through the CRT shader. */
+/** The lit picture: the game system's canvas pushed through the CRT shader. */
 export function GameScreen() {
   const { game, texture, material } = useMemo(() => {
-    const game = new PixelGame()
+    const game = new GameSystem()
     const texture = new CanvasTexture(game.canvas)
     texture.colorSpace = SRGBColorSpace
     texture.magFilter = texture.minFilter = NearestFilter
@@ -33,6 +34,14 @@ export function GameScreen() {
     })
     return { game, texture, material }
   }, [])
+
+  useEffect(
+    () => () => {
+      texture.dispose()
+      material.dispose()
+    },
+    [texture, material],
+  )
 
   useFrame((_, dt) => {
     const u = material.uniforms

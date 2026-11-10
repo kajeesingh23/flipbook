@@ -5,9 +5,9 @@ import type { PerspectiveCamera } from 'three'
 import { axes } from './store'
 
 export const FOV = 24
-/** Half-extents the framing must contain: body plus cartridges and plug. */
-const FIT = { halfW: 2.3, halfH: 3.0 }
-const TARGET_Y = -0.12
+/** Half-extents the framing must contain: body plus cartridges, at any rotation. */
+const FIT = { halfW: 2.3, halfH: 2.9 }
+const TARGET_Y = 0
 
 /**
  * Keeps the console framed at any aspect ratio and adds a gentle

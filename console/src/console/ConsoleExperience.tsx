@@ -20,7 +20,7 @@ export function ConsoleExperience() {
         gl.toneMappingExposure = 1
       }}
       role="img"
-      aria-label="Interactive 3D retro handheld game console. Drag the joystick, press the buttons, pull the cartridges and turn the side knob. Keyboard: arrow keys to move, Z X C for the action buttons."
+      aria-label="Interactive 3D retro handheld game console. Drag the body to rotate it. Press a cartridge to load Snake, Pong or the Adventure platformer, then play with the joystick, D-pad and buttons. Keyboard: arrow keys to move, Z X C for the blue, yellow and red buttons."
     >
       <Scene reducedMotion={reducedMotion} mobile={mobile} />
     </Canvas>

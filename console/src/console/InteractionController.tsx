@@ -27,12 +27,13 @@ export function InteractionController() {
         }
       }
       // The pad is a four-way rocker: horizontal wins on a diagonal.
-      useConsole.getState().setPad(Math.sign(x), x ? 0 : Math.sign(y))
+      useConsole.getState().setPad(Math.sign(x), x ? 0 : Math.sign(y), 'keys')
     }
     const onKey = (e: KeyboardEvent) => {
       const key = e.key.toLowerCase()
       const down = e.type === 'keydown'
       if (e.metaKey || e.ctrlKey || e.altKey) return
+      if (e.repeat) return e.preventDefault()
       if (key in DIR_KEYS) {
         e.preventDefault()
         if (down) held.add(key)
@@ -40,14 +41,14 @@ export function InteractionController() {
         syncPad()
       } else if (key in BUTTON_KEYS) {
         e.preventDefault()
-        useConsole.getState().press(BUTTON_KEYS[key], down)
+        useConsole.getState().press(BUTTON_KEYS[key], down, 'keys')
       }
     }
     const onBlur = () => {
       held.clear()
       syncPad()
       const s = useConsole.getState()
-      ;(['a', 'b', 'c'] as const).forEach((id) => s.press(id, false))
+      ;(['a', 'b', 'c'] as const).forEach((id) => s.press(id, false, 'keys'))
     }
     window.addEventListener('keydown', onKey)
     window.addEventListener('keyup', onKey)

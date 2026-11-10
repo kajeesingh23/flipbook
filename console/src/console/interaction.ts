@@ -4,6 +4,12 @@ import { Plane, Vector3 } from 'three'
 import type { Object3D } from 'three'
 import { axes } from './store'
 
+/**
+ * Set by any control that takes a pointer-down. The rotation controller
+ * checks it so pressing a button or dragging the stick never spins the body.
+ */
+export const pointerClaim = { claimed: false }
+
 const normal = new Vector3()
 const hit = new Vector3()
 
@@ -43,8 +49,14 @@ export class LocalDrag {
   }
 }
 
-export function capture(e: ThreeEvent<PointerEvent>) {
+/** Claim a pointer-down for a control without capturing it (simple clicks). */
+export function claim(e: ThreeEvent<PointerEvent>) {
   e.stopPropagation()
+  pointerClaim.claimed = true
+}
+
+export function capture(e: ThreeEvent<PointerEvent>) {
+  claim(e)
   ;(e.target as Element).setPointerCapture(e.pointerId)
 }
 
@@ -64,10 +76,19 @@ export const hover = (cursor: string) => ({
   },
 })
 
-/** Non-interactive solids still need to occlude the controls behind them. */
+/**
+ * The shell itself: it occludes the controls behind it, and because it does
+ * not claim the pointer, a drag that starts here rotates the console.
+ */
 export const solid = {
   onPointerDown: (e: ThreeEvent<PointerEvent>) => e.stopPropagation(),
-  onPointerOver: (e: ThreeEvent<PointerEvent>) => e.stopPropagation(),
+  onPointerOver: (e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation()
+    if (!axes.dragging) document.body.style.cursor = 'grab'
+  },
+  onPointerOut: () => {
+    if (!axes.dragging) document.body.style.cursor = ''
+  },
 }
 
 export function useReducedMotion() {

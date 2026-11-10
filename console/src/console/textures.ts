@@ -74,17 +74,17 @@ export function smiley() {
   return finish(c)
 }
 
-/** White paper label for the memory card, text running along its length. */
-export function memoryLabel() {
+/** White paper cartridge label, text running along its length. */
+export function cartLabel(text: string) {
   const [c, ctx] = canvas(96, 320)
   ctx.fillStyle = '#fbfaf8'
   ctx.fillRect(0, 0, 96, 320)
   ctx.translate(48, 160)
   ctx.rotate(Math.PI / 2)
-  ctx.font = '700 34px Fredoka, sans-serif'
+  ctx.font = '700 44px Fredoka, sans-serif'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillStyle = '#2b2f3a'
-  ctx.fillText('Memory Card', 0, 2)
+  ctx.fillText(text, 0, 2)
   return finish(c)
 }

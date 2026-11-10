@@ -9,7 +9,7 @@ import { hover, LocalDrag } from '../interaction'
 import { mat } from '../materials'
 import { useConsole } from '../store'
 import type { CartId } from '../store'
-import { embossed, memoryLabel } from '../textures'
+import { cartLabel, embossed } from '../textures'
 
 type Vec3 = [number, number, number]
 type Props = { id: CartId; position: Vec3; axis: Vec3; travel: number; children: ReactNode }
@@ -18,9 +18,10 @@ const delta = new Vector3()
 const THICK = 0.24
 
 /**
- * A removable cartridge constrained to its slot axis. Click to eject / seat
- * it, or drag it along the slot; it always snaps to one of the two detents
- * and never leaves the slot.
+ * A removable game cartridge constrained to its slot axis. Press a seated
+ * cartridge to boot its game; press the running one to eject it (back to the
+ * title); press or push an ejected one to seat and boot it. It can also be
+ * dragged along the slot, always snaps to a detent and never leaves the slot.
  */
 export function Cartridge({ id, position, axis, travel, children }: Props) {
   const root = useRef<Group>(null!)
@@ -28,6 +29,7 @@ export function Cartridge({ id, position, axis, travel, children }: Props) {
   const startOffset = useRef(0)
   const inserted = useConsole((s) => s.carts[id])
   const setCart = useConsole((s) => s.setCart)
+  const loadCart = useConsole((s) => s.loadCart)
   const dir = useMemo(() => new Vector3(...axis), [axis])
 
   const [{ o }, api] = useSpring(() => ({ o: 0 }))
@@ -64,8 +66,21 @@ export function Cartridge({ id, position, axis, travel, children }: Props) {
           api.start({ o: next, immediate: true })
         }}
         onPointerUp={(e) => {
+          // A captured pointer can deliver its release twice; act on the first only.
+          if (!drag.active) return
           const wasClick = drag.travelled < 0.03
           drag.end(e)
+          if (wasClick && inserted && useConsole.getState().activeCart !== id) {
+            // Seated but not running: a firm press clicks it home and boots it.
+            api.start({
+              to: [
+                { o: -0.035, config: { tension: 900, friction: 30 } },
+                { o: 0, config: { tension: 520, friction: 16 } },
+              ],
+            })
+            loadCart(id)
+            return
+          }
           const next = wasClick ? !inserted : o.get() < travel / 2
           if (next === inserted) api.start({ o: inserted ? 0 : travel, config: { tension: 420, friction: 20 } })
           else setCart(id, next)
@@ -85,11 +100,11 @@ const TOP = { x: -0.62, w: 0.9, h: 1.3, out: 0.62 }
 const SIDE = { y: 0.96, w: 1.15, h: 0.66, out: 0.42 }
 const BOTTOM = { x: -0.72, w: 0.82, h: 0.95, out: 0.27 }
 
-/** Yellow game cartridge in the top slot. Pulling it blanks the game. */
+/** Yellow cartridge in the top slot: Pong. */
 function TopCartridge() {
   const body = useMemo(() => slab(TOP.w, TOP.h, THICK, 0.15, 0.03, [circleHole(0, TOP.h / 2 - 0.15, 0.06)]), [])
   const rim = useMemo(() => slab(TOP.w - 0.12, 0.26, 0.03, 0.08, 0.012), [])
-  const text = useMemo(() => embossed('fast', '#F4BB2F'), [])
+  const text = useMemo(() => embossed('pong', '#F4BB2F'), [])
   const top = HOUSING_H / 2
   return (
     <>
@@ -110,10 +125,10 @@ function TopCartridge() {
   )
 }
 
-/** Blue memory card in the right-hand slot. */
+/** Blue cartridge in the right-hand slot: Snake. */
 function MemoryCard() {
   const body = useMemo(() => slab(SIDE.w, SIDE.h, THICK, 0.06, 0.03), [])
-  const label = useMemo(() => memoryLabel(), [])
+  const label = useMemo(() => cartLabel('Snake'), [])
   const right = HOUSING_W / 2
   return (
     <>
@@ -131,10 +146,11 @@ function MemoryCard() {
   )
 }
 
-/** Coral expansion cartridge in the bottom slot, with a moulded eject arrow. */
+/** Coral cartridge in the bottom slot: the Adventure platformer. */
 function BottomCartridge() {
   const body = useMemo(() => slab(BOTTOM.w, BOTTOM.h, THICK + 0.06, 0.16, 0.035), [])
   const stroke = useMemo(() => slab(0.2, 0.05, 0.03, 0.025, 0.01), [])
+  const text = useMemo(() => embossed('adventure', '#EC5536'), [])
   const bottom = -HOUSING_H / 2
   return (
     <>
@@ -147,6 +163,11 @@ function BottomCartridge() {
           <mesh geometry={stroke} material={mat.cartRed} position-x={-0.062} rotation-z={0.62} />
           <mesh geometry={stroke} material={mat.cartRed} position-x={0.062} rotation-z={-0.62} />
         </group>
+        {/* Title only shows once the cartridge is pulled out */}
+        <mesh position={[0, -BOTTOM.h / 2 + 0.36, THICK / 2 + 0.032]}>
+          <planeGeometry args={[0.64, 0.12]} />
+          <meshStandardMaterial map={text} transparent roughness={0.45} depthWrite={false} />
+        </mesh>
       </Cartridge>
     </>
   )

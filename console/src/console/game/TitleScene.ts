@@ -1,14 +1,13 @@
-import { axes, events, useConsole } from '../store'
 import { drawText, textWidth, TITLE_FONT } from './font'
-
-export const GW = 192
-export const GH = 128
+import { drawCoin, drawHero } from './sprites'
+import { GH, GW } from './types'
+import type { Ctx, GameInput } from './types'
+import { blink, centerText } from './ui'
 
 const WORLD = 384 // background layers tile every WORLD pixels
 const GROUND = 102 // top of the grass
 const PLAYER_X = 78 // the hero stays here; the world scrolls past
 
-type Ctx = CanvasRenderingContext2D
 type Spark = { x: number; y: number; vx: number; vy: number; life: number; color: string }
 
 const mod = (n: number, m: number) => ((n % m) + m) % m
@@ -165,7 +164,42 @@ const ground = () =>
     }
   })
 
-// ── Game ────────────────────────────────────────────────────────────────────
+/** Sky, clouds, cliffs, forest and lake — shared by the title and the platformer. */
+export class Backdrop {
+  private layers = { clouds: clouds(), cliffs: cliffs(), forest: forest() }
+
+  draw(ctx: Ctx, cam: number, t: number) {
+    const sky = ['#58b4d6', '#69bfd9', '#7ccadc', '#90d5de', '#a6dfdf', '#bde8de', '#d2efdc', '#e4f5dc']
+    sky.forEach((c, i) => {
+      ctx.fillStyle = c
+      ctx.fillRect(0, i * 12, GW, 12)
+    })
+    blit(ctx, this.layers.clouds, cam + t * 12, 0.08)
+    blit(ctx, this.layers.cliffs, cam, 0.25)
+    blit(ctx, this.layers.forest, cam, 0.5)
+
+    // Lake
+    ctx.fillStyle = '#2f97c2'
+    ctx.fillRect(0, 88, GW, GH - 88)
+    ctx.fillStyle = '#55b5d6'
+    ctx.fillRect(0, 88, GW, 2)
+    ctx.fillStyle = '#b9eef0'
+    for (let i = 0; i < 16; i++) {
+      const wx = mod(i * 53 - cam * 0.7, GW + 20) - 10
+      const wy = 91 + ((i * 5) % 9)
+      const w = 3 + ((i + Math.floor(t * 2.5)) % 4)
+      ctx.fillRect(Math.floor(wx), wy, w, 1)
+    }
+  }
+}
+
+function blit(ctx: Ctx, layer: HTMLCanvasElement, cam: number, factor: number) {
+  const o = -Math.floor(mod(cam * factor, WORLD))
+  ctx.drawImage(layer, o, 0)
+  ctx.drawImage(layer, o + WORLD, 0)
+}
+
+// ── Title scene ─────────────────────────────────────────────────────────────
 
 const GEMS = [
   { x: 30, h: 8 },
@@ -179,10 +213,13 @@ const GEMS = [
 const TITLE = 'ADVENTURE'
 const TITLE_RAMP = ['#fff08a', '#ffdc4a', '#ffc233', '#ff9f2e', '#f6792b', '#e7532b', '#cf342c']
 
-export class PixelGame {
-  readonly canvas = document.createElement('canvas')
-  private ctx: Ctx
-  private layers = { clouds: clouds(), cliffs: cliffs(), forest: forest(), ground: ground() }
+/**
+ * The console's home screen: the ADVENTURE key art over a small free-roam
+ * scene. It is what shows whenever no cartridge game is running.
+ */
+export class TitleScene {
+  private backdrop = new Backdrop()
+  private ground = ground()
 
   private t = 0
   private px = 60
@@ -196,23 +233,17 @@ export class PixelGame {
   private titleT = 1
   private night = 0
   private nightTarget = 0
-  private paused = false
   private score = 0
   private gems = GEMS.map((g) => ({ ...g, respawn: 0 }))
   private sparks: Spark[] = []
-  private toast = { text: '', t: 0 }
-  private flash = 0
 
-  constructor() {
-    this.canvas.width = GW
-    this.canvas.height = GH
-    this.ctx = this.canvas.getContext('2d')!
-    this.ctx.imageSmoothingEnabled = false
-    this.draw(true)
-  }
-
-  private say(text: string, t = 1.6) {
-    this.toast = { text, t }
+  reset() {
+    this.score = 0
+    this.px = 60
+    this.py = 5
+    this.nightTarget = 0
+    this.idle = 99
+    this.gems.forEach((g) => (g.respawn = 0))
   }
 
   private burst(x: number, y: number, colors: string[], count = 12) {
@@ -223,78 +254,43 @@ export class PixelGame {
     }
   }
 
-  update(dt: number) {
-    dt = Math.min(dt, 0.05)
-    const s = useConsole.getState()
-    const hasCart = s.carts.top
+  update(dt: number, input: GameInput) {
     this.t += dt
-
+    const feetY = GROUND + 4 + this.py - this.z
     let active = false
-    for (const e of events.splice(0)) {
-      active = true
-      if (e.type === 'cart') {
-        if (e.id === 'top') this.say(e.inserted ? 'GAME LOADED' : '')
-        else if (e.id === 'right') this.say(e.inserted ? 'MEMORY CARD OK' : 'NO MEMORY CARD')
-        else this.say(e.inserted ? 'EXPANSION OK' : 'EXPANSION OUT')
-        if (e.inserted) this.flash = 1
-      } else if (e.type === 'knob') {
-        const n = Math.round(e.level * 8)
-        this.say('LIGHT ' + '#'.repeat(n) + '_'.repeat(8 - n), 1.1)
-      } else if (e.type === 'pause') {
-        this.paused = !this.paused
-      } else if (e.type === 'reset') {
-        this.score = 0
-        this.px = 60
-        this.py = 5
-        this.nightTarget = 0
-        this.paused = false
-        this.idle = 99
-        this.gems.forEach((g) => (g.respawn = 0))
-        this.flash = 1
-      } else if (hasCart && !this.paused) {
-        const feetY = GROUND + 4 + this.py - this.z
-        if (e.id === 'a' && this.z === 0) this.vz = 105
-        if (e.id === 'b') this.burst(PLAYER_X + this.facing * 6, feetY - 10, ['#fff08a', '#ffc233', '#ffffff'])
-        if (e.id === 'c') {
-          this.nightTarget = this.nightTarget ? 0 : 1
-          this.flash = 0.6
-        }
-      }
-    }
 
-    this.toast.t = Math.max(0, this.toast.t - dt)
-    this.flash = Math.max(0, this.flash - dt * 3)
+    if (input.pressed.a && this.z === 0) this.vz = 105
+    if (input.pressed.b) this.burst(PLAYER_X + this.facing * 6, feetY - 10, ['#fff08a', '#ffc233', '#ffffff'])
+    if (input.pressed.c) this.nightTarget = this.nightTarget ? 0 : 1
+    if (input.pressed.a || input.pressed.b || input.pressed.c) active = true
+
     this.night += (this.nightTarget - this.night) * Math.min(1, dt * 4)
 
-    if (s.power && hasCart && !this.paused) {
-      let mx = clamp(axes.joyX + s.pad.x, -1, 1)
-      let my = clamp(axes.joyY + s.pad.y, -1, 1)
-      if (Math.abs(mx) < 0.15) mx = 0
-      if (Math.abs(my) < 0.15) my = 0
-      this.moving = mx !== 0 || my !== 0
-      if (this.moving) active = true
-      if (mx) this.facing = Math.sign(mx)
-      this.px += mx * 52 * dt
-      this.py = clamp(this.py - my * 26 * dt, 0, 15)
-      this.walk += (Math.abs(mx) + Math.abs(my) * 0.6) * dt * 9
+    const mx = Math.abs(input.x) < 0.15 ? 0 : input.x
+    const my = Math.abs(input.y) < 0.15 ? 0 : input.y
+    this.moving = mx !== 0 || my !== 0
+    if (this.moving) active = true
+    if (mx) this.facing = Math.sign(mx)
+    this.px += mx * 52 * dt
+    this.py = clamp(this.py - my * 26 * dt, 0, 15)
+    this.walk += (Math.abs(mx) + Math.abs(my) * 0.6) * dt * 9
 
-      if (this.z > 0 || this.vz > 0) {
-        this.vz -= 330 * dt
-        this.z = Math.max(0, this.z + this.vz * dt)
-        if (this.z === 0) this.vz = 0
+    if (this.z > 0 || this.vz > 0) {
+      this.vz -= 330 * dt
+      this.z = Math.max(0, this.z + this.vz * dt)
+      if (this.z === 0) this.vz = 0
+    }
+
+    for (const g of this.gems) {
+      if (g.respawn > 0) {
+        g.respawn -= dt
+        continue
       }
-
-      for (const g of this.gems) {
-        if (g.respawn > 0) {
-          g.respawn -= dt
-          continue
-        }
-        const dx = mod(g.x - this.px + WORLD / 2, WORLD) - WORLD / 2
-        if (Math.abs(dx) < 8 && Math.abs(this.z + 9 - g.h) < 11) {
-          g.respawn = 7
-          this.score++
-          this.burst(PLAYER_X + dx, GROUND + 4 + this.py - g.h - 4, ['#fff08a', '#ffffff'], 8)
-        }
+      const dx = mod(g.x - this.px + WORLD / 2, WORLD) - WORLD / 2
+      if (Math.abs(dx) < 8 && Math.abs(this.z + 9 - g.h) < 11) {
+        g.respawn = 7
+        this.score++
+        this.burst(PLAYER_X + dx, GROUND + 4 + this.py - g.h - 4, ['#fff08a', '#ffffff'], 8)
       }
     }
 
@@ -310,65 +306,28 @@ export class PixelGame {
     this.idle = active ? 0 : this.idle + dt
     const titleTarget = this.idle > 6 ? 1 : 0
     this.titleT += (titleTarget - this.titleT) * Math.min(1, dt * 5)
-
-    this.draw(hasCart)
   }
 
-  private blit(layer: HTMLCanvasElement, cam: number, factor: number) {
-    const o = -Math.floor(mod(cam * factor, WORLD))
-    this.ctx.drawImage(layer, o, 0)
-    this.ctx.drawImage(layer, o + WORLD, 0)
-  }
-
-  private draw(hasCart: boolean) {
-    const { ctx } = this
-    if (!hasCart) return this.drawNoCart()
-
+  draw(ctx: Ctx) {
     const cam = this.px - PLAYER_X
-
-    // Sky
-    const sky = ['#58b4d6', '#69bfd9', '#7ccadc', '#90d5de', '#a6dfdf', '#bde8de', '#d2efdc', '#e4f5dc']
-    sky.forEach((c, i) => {
-      ctx.fillStyle = c
-      ctx.fillRect(0, i * 12, GW, 12)
-    })
-    this.blit(this.layers.clouds, cam + this.t * 12, 0.08)
-    this.blit(this.layers.cliffs, cam, 0.25)
-    this.blit(this.layers.forest, cam, 0.5)
-
-    // Lake
-    ctx.fillStyle = '#2f97c2'
-    ctx.fillRect(0, 88, GW, GROUND - 88)
-    ctx.fillStyle = '#55b5d6'
-    ctx.fillRect(0, 88, GW, 2)
+    this.backdrop.draw(ctx, cam, this.t)
     ctx.fillStyle = '#1f7fae'
     ctx.fillRect(0, GROUND - 3, GW, 3)
-    ctx.fillStyle = '#b9eef0'
-    for (let i = 0; i < 16; i++) {
-      const wx = mod(i * 53 - cam * 0.7, GW + 20) - 10
-      const wy = 91 + ((i * 5) % 9)
-      const w = 3 + ((i + Math.floor(this.t * 2.5)) % 4)
-      ctx.fillRect(Math.floor(wx), wy, w, 1)
-    }
+    blit(ctx, this.ground, cam, 1)
 
-    this.blit(this.layers.ground, cam, 1)
-
-    // Gems
     for (const g of this.gems) {
       if (g.respawn > 0) continue
       const dx = mod(g.x - this.px + WORLD / 2, WORLD) - WORLD / 2
-      const x = Math.floor(PLAYER_X + dx)
-      const y = Math.floor(GROUND + 2 - g.h + Math.sin(this.t * 3 + g.x) * 1.5)
-      ctx.fillStyle = '#b8791c'
-      ctx.fillRect(x - 2, y - 3, 5, 7)
-      ctx.fillRect(x - 3, y - 2, 7, 5)
-      ctx.fillStyle = '#ffd23f'
-      ctx.fillRect(x - 2, y - 2, 5, 5)
-      ctx.fillStyle = '#fff6b0'
-      ctx.fillRect(x - 1, y - 2, 2, 2)
+      drawCoin(ctx, Math.floor(PLAYER_X + dx), Math.floor(GROUND + 2 - g.h + Math.sin(this.t * 3 + g.x) * 1.5))
     }
 
-    this.drawHero()
+    // Hero with a ground shadow that shrinks while airborne
+    const feet = Math.floor(GROUND + 4 + this.py)
+    const sw = this.z > 10 ? 6 : 10
+    ctx.fillStyle = 'rgba(30,40,20,0.35)'
+    ctx.fillRect(PLAYER_X - sw / 2, feet, sw, 2)
+    const step = this.moving && this.z === 0 ? Math.floor(this.walk) % 2 : 0
+    drawHero(ctx, PLAYER_X, feet - Math.floor(this.z), this.facing, step, this.z > 0)
 
     // Dark canopy framing the corners, like the reference key art
     for (const [x, y, r] of [[4, 2, 16], [22, -4, 12], [-2, 22, 9], [188, 0, 17], [168, -5, 11], [194, 22, 8]] as const)
@@ -393,86 +352,27 @@ export class PixelGame {
       ctx.fillRect(Math.floor(p.x), Math.floor(p.y), sz, sz)
     }
 
-    // HUD fades in once the title is away
+    // Coin counter fades in once the title is away
     if (this.titleT < 0.5) {
-      ctx.fillStyle = '#3a1408'
-      ctx.fillRect(34, 5, 7, 9)
-      ctx.fillStyle = '#ffd23f'
-      ctx.fillRect(35, 6, 5, 7)
-      ctx.fillStyle = '#fff6b0'
-      ctx.fillRect(36, 7, 2, 2)
+      drawCoin(ctx, 37, 9)
       const n = String(this.score).padStart(2, '0')
       drawText(ctx, n, 45, 7, '#3a1408')
       drawText(ctx, n, 44, 6, '#ffffff')
     }
 
-    if (this.titleT > 0.01) this.drawTitle()
+    if (this.titleT > 0.01) this.drawTitle(ctx)
 
-    if (this.paused) {
-      ctx.fillStyle = 'rgba(10,12,30,0.55)'
-      ctx.fillRect(0, 0, GW, GH)
-      if (Math.floor(this.t * 2) % 2) drawText(ctx, 'PAUSE', (GW - textWidth('PAUSE', 2)) / 2, 54, '#ffffff', 2)
-    }
-
-    this.drawToast()
-
-    if (this.flash > 0) {
-      ctx.globalAlpha = this.flash
-      ctx.fillStyle = '#ffffff'
-      ctx.fillRect(0, 0, GW, GH)
-      ctx.globalAlpha = 1
+    // How to start a game: always present, kept quiet
+    if (blink(this.t, 1.2)) {
+      const msg = 'PRESS A CARTRIDGE TO PLAY'
+      const w = textWidth(msg)
+      ctx.fillStyle = 'rgba(10,14,24,0.72)'
+      ctx.fillRect((GW - w) / 2 - 4, GH - 13, w + 8, 11)
+      centerText(ctx, msg, GH - 11, '#ffffff')
     }
   }
 
-  private drawHero() {
-    const { ctx } = this
-    const feet = Math.floor(GROUND + 4 + this.py)
-    const y = feet - Math.floor(this.z)
-    const step = this.moving && this.z === 0 ? Math.floor(this.walk) % 2 : 0
-    const bob = this.moving && this.z === 0 && step ? 1 : 0
-
-    // Ground shadow shrinks while airborne
-    ctx.fillStyle = 'rgba(30,40,20,0.35)'
-    const sw = this.z > 10 ? 6 : 10
-    ctx.fillRect(PLAYER_X - sw / 2, feet, sw, 2)
-
-    ctx.save()
-    ctx.translate(PLAYER_X, y)
-    ctx.scale(this.facing, 1)
-    const R = (c: string, x: number, yy: number, w: number, h: number) => {
-      ctx.fillStyle = c
-      ctx.fillRect(x, yy, w, h)
-    }
-    // Legs
-    if (this.z > 0) {
-      R('#2b3a55', -3, -5, 3, 4)
-      R('#2b3a55', 1, -5, 3, 3)
-    } else if (step) {
-      R('#2b3a55', -4, -5, 3, 5)
-      R('#2b3a55', 2, -5, 3, 4)
-    } else {
-      R('#2b3a55', -3, -5, 3, 5)
-      R('#2b3a55', 1, -5, 3, 5)
-    }
-    R('#5a3a24', this.z > 0 ? -3 : step ? -4 : -3, -1, 3, 1)
-    // Backpack (the reference hero's signature red pack)
-    R('#a82a1c', -7, -13 + bob, 4, 8)
-    R('#e74732', -7, -13 + bob, 3, 6)
-    R('#f5bd35', -6, -9 + bob, 2, 1)
-    // Torso
-    R('#2f8a63', -3, -13 + bob, 7, 8)
-    R('#3fa878', -1, -13 + bob, 4, 5)
-    R('#e9b58c', 3, -11 + bob, 2, 3) // arm
-    // Head
-    R('#e9b58c', -2, -19 + bob, 6, 6)
-    R('#2a1a16', -3, -20 + bob, 7, 3)
-    R('#2a1a16', -3, -18 + bob, 3, 4)
-    R('#2a1a16', 2, -16 + bob, 1, 1) // eye
-    ctx.restore()
-  }
-
-  private drawTitle() {
-    const { ctx } = this
+  private drawTitle(ctx: Ctx) {
     const ease = this.titleT * this.titleT * (3 - 2 * this.titleT)
     const sx = 2
     const sy = 3
@@ -512,32 +412,5 @@ export class PixelGame {
       ctx.fillStyle = '#ffe9a8'
       ctx.fillRect(x, ry, 4, 1)
     }
-  }
-
-  private drawToast() {
-    const { ctx } = this
-    const { text, t } = this.toast
-    if (!text || t <= 0) return
-    const w = textWidth(text)
-    const x = Math.floor((GW - w) / 2)
-    ctx.fillStyle = '#10131c'
-    ctx.fillRect(x - 5, GH - 20, w + 10, 13)
-    ctx.fillStyle = '#ffe36e'
-    ctx.fillRect(x - 5, GH - 20, w + 10, 1)
-    drawText(ctx, text, x, GH - 16, '#ffffff')
-  }
-
-  private drawNoCart() {
-    const { ctx } = this
-    ctx.fillStyle = '#0d1117'
-    ctx.fillRect(0, 0, GW, GH)
-    for (let i = 0; i < 420; i++) {
-      const v = 40 + Math.floor(Math.random() * 90)
-      ctx.fillStyle = `rgb(${v},${v},${v + 12})`
-      ctx.fillRect(Math.floor(Math.random() * GW), Math.floor(Math.random() * GH), 2, 1)
-    }
-    if (Math.floor(this.t * 2) % 2) drawText(ctx, 'NO CART', (GW - textWidth('NO CART', 2)) / 2, 48, '#ffffff', 2)
-    drawText(ctx, 'INSERT GAME', (GW - textWidth('INSERT GAME')) / 2, 72, '#ffc233')
-    this.drawToast()
   }
 }
