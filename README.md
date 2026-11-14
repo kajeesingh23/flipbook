@@ -13,6 +13,7 @@ npm install
 npm run dev      # start the dev server
 npm test         # IK solver tests
 npm run build    # type-check and production build
+npm run package  # single shareable file: dist/robot-arm.html
 ```
 
 Controls: move the pointer to steer the arm, drag to orbit, scroll to zoom,
