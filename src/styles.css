@@ -1,0 +1,85 @@
+:root {
+  color-scheme: light;
+  font-family: Inter, 'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: #eceae6;
+  color: #4a4c50;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+.stage {
+  position: fixed;
+  inset: 0;
+}
+
+.stage canvas {
+  display: block;
+  touch-action: none;
+}
+
+.hud {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 24px calc(18px + env(safe-area-inset-bottom));
+  pointer-events: none;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.hint {
+  margin: 0;
+  color: #74767a;
+}
+
+.hint .coarse {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .hint .fine {
+    display: none;
+  }
+  .hint .coarse {
+    display: inline;
+  }
+}
+
+.hud button {
+  pointer-events: auto;
+  flex: none;
+  font: inherit;
+  color: #2c2e32;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(44, 46, 50, 0.22);
+  border-radius: 999px;
+  padding: 8px 16px;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.hud button:hover {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(44, 46, 50, 0.4);
+}
+
+.hud button:focus-visible {
+  outline: 2px solid #2c2e32;
+  outline-offset: 2px;
+}
